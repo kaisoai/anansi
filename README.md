@@ -42,6 +42,10 @@ context/
 - **Provenance, not trust scores.** Tag where context came from. Let the model decide what matters.
 - **Humans are sources too.** An expert interview is anansi gathering from a human.
 
+## License
+
+MIT. Open source.
+
 ## Part of the Kaiso universe
 
 - **anansi** gathers the stories
