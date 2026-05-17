@@ -17,6 +17,12 @@ irie check proposal.md context/
 anansi repo https://github.com/kaisoai/irie -o context/
 ```
 
+## Design principles
+
+- **Never truncate.** If context is too long for one prompt, chunk and patch across calls. Truncation kills signal — a reviewer comment at position 8001 might be the one that matters.
+- **Gather agentically.** Don't just fetch the issue body. Follow links, read referenced PRs, get the discussion thread. Context is everything.
+- **Produce files, not prompts.** anansi outputs markdown. What to do with it is irie's job.
+
 ## What it produces
 
 Markdown files. One per source. irie reads them as context.
