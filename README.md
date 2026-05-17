@@ -2,51 +2,37 @@
 
 Gather context from anywhere. The spider that collects stories.
 
-**anansi** (West African / Caribbean folklore: the spider trickster who gathered all the world's stories) crawls sources and produces context files that [irie](https://github.com/kaisoai/irie) consumes for verification.
+**anansi** (West African / Caribbean folklore: the spider trickster who gathered all the world's stories) crawls sources, talks to humans, and produces context files. The context layer for [irie](https://github.com/kaisoai/irie) verification.
+
+## Design principles
+
+- **Never truncate.** The signal might be in comment #47. Chunk if needed, never cut.
+- **Gather agentically.** Follow links, read referenced PRs, crawl repo structure.
+- **Source provenance.** Tag where context came from — automated sources vs expert input vs requester specs. irie weights accordingly.
+- **Humans are sources too.** An expert interview is just anansi gathering context from a human instead of GitHub.
 
 ## Usage
 
 ```bash
-# Gather context from a GitHub issue
-anansi gh Expensify/App#15193 -o context/
-
-# Then verify with irie
-irie check proposal.md context/
-
-# Gather a repo's key files
-anansi repo https://github.com/kaisoai/irie -o context/
+anansi gh Expensify/App#15193 -o context/     # GitHub issue + full thread
+anansi repo kaisoai/irie -o context/           # repo structure + key files
 ```
-
-## Design principles
-
-- **Never truncate.** If context is too long for one prompt, chunk and patch across calls. Truncation kills signal — a reviewer comment at position 8001 might be the one that matters.
-- **Gather agentically.** Don't just fetch the issue body. Follow links, read referenced PRs, get the discussion thread. Context is everything.
-- **Produce files, not prompts.** anansi outputs markdown. What to do with it is irie's job.
 
 ## What it produces
 
-Markdown files. One per source. irie reads them as context.
+Markdown files. One per source. Any tool can read them.
 
 ```
 context/
 ├── issue.md          # issue body + metadata
-├── comments.md       # discussion thread
-├── linked_prs.md     # related pull requests
-└── repo_context.md   # relevant source files
+├── comments.md       # full discussion thread (paginated, never truncated)
+└── linked_prs.md     # related pull requests
 ```
-
-## Plugins
-
-| Source | Command | Status |
-|---|---|---|
-| GitHub issue | `anansi gh owner/repo#123` | Working |
-| GitHub repo | `anansi repo URL` | Planned |
-| Slack thread | `anansi slack channel/thread` | Future |
-| Jira ticket | `anansi jira PROJECT-123` | Future |
-| URL | `anansi url https://...` | Future |
 
 ## Part of the Kaiso universe
 
-- **anansi** gathers the stories
-- **irie** checks the vibes
-- **[kaiso](https://kaiso.ai)** runs the marketplace
+- **anansi** gathers the stories (context — automated and human)
+- **[irie](https://github.com/kaisoai/irie)** checks the vibes (verification)
+- **[susu](https://github.com/kaisoai/susu)** is where work trades hands (marketplace)
+
+Loosely coupled. Markdown files as interface. No code imports between tools.
