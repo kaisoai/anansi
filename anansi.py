@@ -16,6 +16,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from manifest import Manifest
+
 
 def gh_issue(issue_ref: str, output_dir: Path) -> list[Path]:
     """Gather full context from a GitHub issue.
@@ -23,12 +25,12 @@ def gh_issue(issue_ref: str, output_dir: Path) -> list[Path]:
     Fetches: issue body, ALL comments (no truncation), linked PRs, labels, timeline.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
+    manifest = Manifest.load(output_dir)
     files = []
 
     # Parse owner/repo#number
     match = re.match(r"([^/]+)/([^#]+)#(\d+)", issue_ref)
     if not match:
-        # Try URL format
         match = re.search(r"github\.com/([^/]+)/([^/]+)/issues/(\d+)", issue_ref)
     if not match:
         print(f"Error: can't parse '{issue_ref}'. Use owner/repo#123 format.")
@@ -36,6 +38,7 @@ def gh_issue(issue_ref: str, output_dir: Path) -> list[Path]:
 
     owner, repo, number = match.groups()
     api_base = f"repos/{owner}/{repo}/issues/{number}"
+    source_id = f"anansi:github:{owner}/{repo}#{number}"
 
     print(f"Gathering context for {owner}/{repo}#{number}")
 
@@ -51,6 +54,9 @@ def gh_issue(issue_ref: str, output_dir: Path) -> list[Path]:
         p = output_dir / "issue.md"
         p.write_text(issue_md)
         files.append(p)
+        manifest.add("issue.md", "automated", source_id,
+                      summary=f"Issue body: {issue.get('title', '')[:80]}",
+                      tags=["github", "issue"])
         print(f"    → issue.md ({len(issue_md)} chars)")
 
     # 2. ALL comments — paginated, no truncation
@@ -67,6 +73,9 @@ def gh_issue(issue_ref: str, output_dir: Path) -> list[Path]:
         p = output_dir / "comments.md"
         p.write_text(comments_md)
         files.append(p)
+        manifest.add("comments.md", "automated", source_id,
+                      summary=f"Discussion thread: {len(comments)} comments",
+                      tags=["github", "comments", "thread"])
         print(f"    → comments.md ({len(comments)} comments, {len(comments_md)} chars)")
 
     # 3. Linked PRs (from timeline events)
@@ -100,11 +109,15 @@ def gh_issue(issue_ref: str, output_dir: Path) -> list[Path]:
         p = output_dir / "linked_prs.md"
         p.write_text(pr_md)
         files.append(p)
+        manifest.add("linked_prs.md", "automated", source_id,
+                      summary=f"Linked PRs and commits: {len(prs)} references",
+                      tags=["github", "prs"])
         print(f"    → linked_prs.md ({len(prs)} references)")
 
-    # Summary
+    # Save manifest + summary
+    manifest.save(output_dir)
     total_chars = sum(f.stat().st_size for f in files)
-    print(f"\n  Total: {len(files)} files, {total_chars:,} chars")
+    print(f"\n  Total: {len(files)} files, {total_chars:,} chars (manifest.json written)")
     return files
 
 
@@ -195,6 +208,42 @@ def _gh_api_paginated(endpoint: str, per_page: int = 100) -> list:
     return all_items
 
 
+def add_context(text_or_file: str, output_dir: Path, source_id: str = "expert",
+                summary: str = "", persist: bool = False) -> Path:
+    """Add expert/human context to an existing context directory.
+
+    If text_or_file is a path to an existing file, copies it.
+    Otherwise treats it as inline text and writes to a new file.
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    manifest = Manifest.load(output_dir)
+
+    p = Path(text_or_file)
+    if p.is_file():
+        # Copy file into context dir
+        content = p.read_text()
+        dest = output_dir / p.name
+        dest.write_text(content)
+        filename = p.name
+    else:
+        # Inline text — write to numbered expert file
+        existing = list(output_dir.glob("expert_*.md"))
+        n = len(existing) + 1
+        filename = f"expert_{n:03d}.md"
+        dest = output_dir / filename
+        dest.write_text(text_or_file)
+
+    manifest.add(
+        filename, "expert", source_id,
+        summary=summary or text_or_file[:80],
+        persist=persist,
+    )
+    manifest.save(output_dir)
+
+    print(f"Added expert context: {filename} ({'persistent' if persist else 'one-time'})")
+    return dest
+
+
 def main():
     parser = argparse.ArgumentParser(description="anansi — gather context from anywhere")
     sub = parser.add_subparsers(dest="command")
@@ -207,12 +256,23 @@ def main():
     repo_p.add_argument("ref", help="owner/repo or GitHub repo URL")
     repo_p.add_argument("-o", "--output", default="context", help="Output directory")
 
+    add_p = sub.add_parser("add", help="Add expert context")
+    add_p.add_argument("text_or_file", help="Inline text or path to file")
+    add_p.add_argument("-o", "--output", default="context", help="Context directory")
+    add_p.add_argument("--source", default="expert", help="Source ID (e.g. expert:dennis)")
+    add_p.add_argument("--summary", default="", help="One-line description")
+    add_p.add_argument("--persist", action="store_true", help="Mark as persistent (rubric-level)")
+
     args = parser.parse_args()
 
     if args.command == "gh":
         gh_issue(args.ref, Path(args.output))
     elif args.command == "repo":
         gh_repo(args.ref, Path(args.output))
+    elif args.command == "add":
+        add_context(args.text_or_file, Path(args.output),
+                    source_id=args.source, summary=args.summary,
+                    persist=args.persist)
     else:
         parser.print_help()
 
