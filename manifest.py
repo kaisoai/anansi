@@ -1,8 +1,8 @@
 """Context manifest — provenance tracking for gathered context.
 
-Every context file gets an entry in manifest.json with source type,
-trust level, and metadata. irie reads the manifest to weight context
-by source trust during evaluation.
+Every context file gets an entry in manifest.json with source metadata.
+The rubric generator model sees the manifest and decides how to weight
+each source. We don't pre-judge — we provide raw facts.
 
 Format is JSON now, binary proto later.
 """
@@ -19,21 +19,14 @@ from pathlib import Path
 class Source:
     type: str  # "automated", "expert", "requester", "agent"
     id: str = ""  # who: "anansi:github", "expert:dennis", "requester:acme"
-    trust: float = 0.5  # 0.0-1.0, irie uses this for weighting
     timestamp: str = ""
+    # Raw metadata — model decides how to use it
+    elo: int | None = None  # Bradley-Terry rating if known
+    history: int | None = None  # number of past contributions if known
 
     def __post_init__(self):
         if not self.timestamp:
             self.timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-
-
-# Default trust levels by source type
-DEFAULT_TRUST = {
-    "expert": 0.9,
-    "requester": 0.7,
-    "automated": 0.5,
-    "agent": 0.4,
-}
 
 
 @dataclass
@@ -42,7 +35,7 @@ class ContextEntry:
     source: Source
     summary: str = ""  # one-line description
     tags: list[str] = field(default_factory=list)
-    persist: bool = False  # true = rubric-level, false = task-level
+    persist: bool = False  # true = intended for reuse across tasks
 
 
 @dataclass
@@ -52,13 +45,11 @@ class Manifest:
 
     def add(self, file: str, source_type: str, source_id: str = "",
             summary: str = "", tags: list[str] | None = None,
-            trust: float | None = None, persist: bool = False) -> ContextEntry:
+            persist: bool = False, elo: int | None = None) -> ContextEntry:
         """Add a context entry with provenance."""
-        if trust is None:
-            trust = DEFAULT_TRUST.get(source_type, 0.5)
         entry = ContextEntry(
             file=file,
-            source=Source(type=source_type, id=source_id, trust=trust),
+            source=Source(type=source_type, id=source_id, elo=elo),
             summary=summary,
             tags=tags or [],
             persist=persist,
@@ -90,15 +81,12 @@ class Manifest:
                 source=Source(
                     type=src.get("type", "automated"),
                     id=src.get("id", ""),
-                    trust=src.get("trust", 0.5),
                     timestamp=src.get("timestamp", ""),
+                    elo=src.get("elo"),
+                    history=src.get("history"),
                 ),
                 summary=e.get("summary", ""),
                 tags=e.get("tags", []),
                 persist=e.get("persist", False),
             ))
         return m
-
-    def by_trust(self) -> list[ContextEntry]:
-        """Entries sorted by trust (highest first)."""
-        return sorted(self.entries, key=lambda e: e.source.trust, reverse=True)
