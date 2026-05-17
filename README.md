@@ -2,52 +2,145 @@
 
 Intelligent context gatherer. The spider that collects stories.
 
-**anansi** (West African / Caribbean folklore: the spider trickster who gathered all the world's stories) crawls sources and interviews humans to build complete context for verification.
+**anansi** (West African / Caribbean folklore: the spider trickster who gathered all the world's stories) crawls sources and interviews humans to build complete context. Open source, MIT licensed.
 
-## Commands
+## Quick Start
 
 ```bash
-# Gather from sources via URI
+# Gather context from a GitHub issue (full thread, never truncates)
 anansi gather github:Expensify/App#15193 -o context/
+
+# Gather from a repo
 anansi gather repo:kaisoai/irie -o context/
-anansi gather Expensify/App#15193 -o context/    # shorthand
 
 # Interview an expert (reads existing context, asks targeted questions)
 anansi interview -o context/
 ```
 
-## Design
+## Example: GitHub Issue
 
-**`gather`** routes URIs to source handlers. Today: GitHub issues, repos. Tomorrow: Slack, Google Docs, Jira — via MCP servers. Anansi doesn't own the connectors. It owns the intelligence about what to fetch and how to structure it.
+```
+$ anansi gather github:Expensify/App#15193 -o context/
 
-**`interview`** reads existing context, identifies gaps and contradictions, asks the expert one question at a time. The expert talks. Anansi structures. Transcript saved with provenance.
+Gathering from github:Expensify/App#15193
+  Gathering Expensify/App#15193
+    → issue.md (2,279 chars)
+    → comments.md (108 comments, 48,372 chars)
+    → linked_prs.md (2 references)
 
-**Manifest** tracks provenance for every context file — source type, source ID, elo rating if known. The rubric generator model sees the manifest and decides how to weight each source. We don't pre-judge.
+  Total: 3 files, 60,172 chars
+```
 
-## What it produces
+108 comments. 60K chars. Zero truncation. Because the signal might be in comment #47.
+
+## Example: Expert Interview
+
+```
+$ anansi interview -o context/
+
+============================================================
+anansi interview — type your answers, 'done' to finish
+============================================================
+
+I see this issue involves code blocks showing bold text temporarily
+when inside markdown headers. The discussion thread shows 6 proposals
+were submitted. I noticed @aimane-chnaif tested proposal #1 and found
+it doesn't work for all cases. Can you tell me more about what
+specifically failed?
+
+You: The issue is that ExpensiMark parses markdown in different order
+     on frontend vs backend. Proposal 1 only fixed headers, not bold
+     or italic. Only proposal 4 handled all three...
+
+Saved: interview_001.md (2,950 chars)
+```
+
+The agent reads existing context, identifies gaps, asks targeted questions.
+
+## What It Produces
 
 ```
 context/
-├── manifest.json     ← provenance for every file
-├── issue.md          ← automated: GitHub issue body
-├── comments.md       ← automated: full discussion thread
-├── linked_prs.md     ← automated: referenced PRs
-└── interview_001.md  ← expert: targeted Q&A transcript
+├── manifest.json       ← provenance for every file
+├── issue.md            ← automated: GitHub issue body
+├── comments.md         ← automated: full discussion thread (paginated)
+├── linked_prs.md       ← automated: referenced PRs
+└── interview_001.md    ← expert: targeted Q&A transcript
 ```
 
-## Principles
+### Manifest (provenance tracking)
 
-- **Never truncate.** The signal might be in comment #47.
-- **Gather agentically.** Follow links, read referenced docs.
-- **Provenance, not trust scores.** Tag where context came from. Let the model decide what matters.
-- **Humans are sources too.** An expert interview is anansi gathering from a human.
+```json
+{
+  "version": 1,
+  "entries": [
+    {
+      "file": "comments.md",
+      "source": {"type": "automated", "id": "github:Expensify/App#15193"},
+      "summary": "Discussion: 108 comments",
+      "tags": ["github", "comments"]
+    },
+    {
+      "file": "interview_001.md",
+      "source": {"type": "expert", "id": "expert:dennis", "elo": 1800},
+      "summary": "Expert interview: parsing consistency",
+      "tags": ["interview", "expert"]
+    }
+  ]
+}
+```
+
+Provenance metadata — source type, ID, elo if known. The rubric generator model sees this and decides how to weight each source. We don't pre-judge.
+
+## Current State
+
+| Feature | Status |
+|---|---|
+| `gather` — GitHub issues (full thread, paginated) | ✅ Working |
+| `gather` — GitHub repos (README, tree, metadata) | ✅ Working |
+| `interview` — expert Q&A against existing context | ✅ Working |
+| URI routing (github:, repo:) | ✅ Working |
+| Manifest provenance tracking | ✅ Working |
+| Slack, Google Docs, Jira sources | 🔜 Via MCP servers |
+| Agentic link following | 🔜 Planned |
+
+## Architecture
+
+```
+anansi/
+├── anansi.py      (243)  — gather URI routing + source handlers
+├── interview.py   (174)  — expert interview agent
+├── manifest.py     (92)  — provenance format
+└── tests/
+    └── test_manifest.py (83)  — 9 tests
+```
+
+592 lines. 9 tests. 2 commands.
+
+## Design Principles
+
+- **Never truncate.** Chunk if needed. The signal is often in the details.
+- **Provenance, not trust scores.** Tag where context came from. Let the model decide.
+- **Humans are sources too.** Expert interview = anansi gathering from a human.
+- **MCP-ready.** URI routing makes new sources a handler function, not an architecture change.
+
+## Works with irie
+
+anansi produces context. [irie](https://github.com/kaisoai/irie) consumes it.
+
+```bash
+anansi gather github:Expensify/App#15193 -o context/
+irie check proposal.md context/
+```
+
+## The Kaiso Universe
+
+| Tool | What | License |
+|---|---|---|
+| **anansi** | Gathers the stories (context) | MIT |
+| **[irie](https://github.com/kaisoai/irie)** | Checks the vibes (verification) | MIT |
+| **[susu](https://github.com/kaisoai/susu)** | Where work trades hands (marketplace) | Proprietary |
 
 ## License
 
 MIT. Open source.
-
-## Part of the Kaiso universe
-
-- **anansi** gathers the stories
-- **[irie](https://github.com/kaisoai/irie)** checks the vibes
-- **[susu](https://github.com/kaisoai/susu)** is where work trades hands
