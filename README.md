@@ -133,13 +133,9 @@ anansi gather github:Expensify/App#15193 -o context/
 irie check proposal.md context/
 ```
 
-## The Kaiso Universe
+## Also See
 
-| Tool | What | License |
-|---|---|---|
-| **anansi** | Gathers the stories (context) | MIT |
-| **[irie](https://github.com/kaisoai/irie)** | Checks the vibes (verification) | MIT |
-| **[susu](https://github.com/kaisoai/susu)** | Where work trades hands (marketplace) | Proprietary |
+- **[irie](https://github.com/kaisoai/irie)** — verification intelligence (MIT)
 
 ## License
 
