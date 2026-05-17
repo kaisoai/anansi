@@ -263,6 +263,10 @@ def main():
     add_p.add_argument("--summary", default="", help="One-line description")
     add_p.add_argument("--persist", action="store_true", help="Mark as persistent (rubric-level)")
 
+    int_p = sub.add_parser("interview", help="Interview an expert to gather context")
+    int_p.add_argument("-o", "--output", default="context", help="Context directory")
+    int_p.add_argument("--source", default="expert", help="Source ID (e.g. expert:dennis)")
+
     args = parser.parse_args()
 
     if args.command == "gh":
@@ -273,6 +277,9 @@ def main():
         add_context(args.text_or_file, Path(args.output),
                     source_id=args.source, summary=args.summary,
                     persist=args.persist)
+    elif args.command == "interview":
+        from interview import run_interview
+        run_interview(Path(args.output), source_id=args.source)
     else:
         parser.print_help()
 
