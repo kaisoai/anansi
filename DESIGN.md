@@ -47,7 +47,7 @@ This design supports future RBAC requirements — visibility scopes can be added
 
 ## Persistence
 
-Context entries are tagged `persist: true` (intended for reuse across tasks of a type) or `persist: false` (one-time, task-specific). This distinction matters for marketplace economics: persistent contributions (rubric criteria, domain rules) have different compounding value than one-time corrections.
+Context entries are tagged `persist: true` (intended for reuse across tasks of a type) or `persist: false` (one-time, task-specific). Persistent context (domain rules, recurring constraints) can be shared across evaluations. One-time context (specific bug details, task-specific notes) applies only to the current evaluation.
 
 ## Design Decisions
 

@@ -104,19 +104,6 @@ Provenance metadata — source type, ID, elo if known. The rubric generator mode
 | Slack, Google Docs, Jira sources | 🔜 Via MCP servers |
 | Agentic link following | 🔜 Planned |
 
-## Architecture
-
-```
-anansi/
-├── anansi.py      (243)  — gather URI routing + source handlers
-├── interview.py   (174)  — expert interview agent
-├── manifest.py     (92)  — provenance format
-└── tests/
-    └── test_manifest.py (83)  — 9 tests
-```
-
-592 lines. 9 tests. 2 commands.
-
 ## Design Principles
 
 - **Never truncate.** Chunk if needed. The signal is often in the details.
